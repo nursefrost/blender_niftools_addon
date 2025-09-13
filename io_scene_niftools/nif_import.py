@@ -196,10 +196,12 @@ class NifImport(NifCommon):
             return None
 
         NifLog.info(f"Importing data for block '{n_block.name}'")
+        b_obj = None
+        # Import geometry if present
         if self.objecthelper.has_geometry(n_block) and NifOp.props.process != "SKELETON_ONLY":
-            return self.objecthelper.import_geometry_object(b_armature, n_block)
-
-        elif isinstance(n_block, NifClasses.NiNode):
+            b_obj = self.objecthelper.import_geometry_object(b_armature, n_block)
+        # If it's a NiNode, process children
+        if isinstance(n_block, NifClasses.NiNode):
             # import object
             if self.armaturehelper.is_armature_root(n_block):
                 # all bones in the tree are also imported by import_armature
@@ -213,7 +215,6 @@ class NifImport(NifCommon):
                     if n_name != b_obj.name:
                         NifLog.warn(f"Using Nif block '{n_name}' as armature '{b_obj.name}' but names do not match")
                 b_armature = b_obj
-
             elif self.armaturehelper.is_bone(n_block):
                 # bones have already been imported during import_armature
                 n_name = block_store.import_name(n_block)
@@ -232,7 +233,7 @@ class NifImport(NifCommon):
             n_children = [child for child in n_block.children]
             for n_child in n_children:
                 b_child = self.import_branch(n_child, b_armature=b_armature)
-                if b_child and isinstance(b_child, bpy.types.Object):
+                if b_child and hasattr(b_child, 'select_set'):
                     b_children.append(b_child)
 
             # import collision objects & bounding box

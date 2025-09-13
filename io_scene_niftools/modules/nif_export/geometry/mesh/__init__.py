@@ -668,8 +668,9 @@ class Mesh:
                     NifLog.warn(f"Using more than {rec_bones} bones per partition on {game} export."
                                 f"This may cause issues in-game.")
 
-            part_order = [NifClasses.BSDismemberBodyPartType[face_map.name] for face_map in
-                          b_obj.face_maps if face_map.name in NifClasses.BSDismemberBodyPartType.__members__]
+            # Build part_order from group names and BSDismemberBodyPartType
+            group_names = b_obj.get("niftools_face_map_names", [])
+            part_order = [NifClasses.BSDismemberBodyPartType[name] for name in group_names if name in NifClasses.BSDismemberBodyPartType.__members__]
             # override pyffi n_geom.update_skin_partition with custom one (that allows ordering)
             n_geom.update_skin_partition = update_skin_partition.__get__(n_geom)
             lostweight = n_geom.update_skin_partition(
@@ -737,20 +738,26 @@ class Mesh:
     def get_polygon_parts(self, b_obj, b_mesh):
         """Returns the body part indices of the mesh polygons. -1 is either not assigned to a face map or not a valid
         body part"""
+        # Retrieve group name mapping from custom property
+        group_names = b_obj.get("niftools_face_map_names", [])
+        # Build a mapping from group index to BSDismemberBodyPartType
         index_group_map = {-1: -1}
-        for bodypartgroupname in [member.name for member in NifClasses.BSDismemberBodyPartType]:
-            face_map = b_obj.face_maps.get(bodypartgroupname)
-            if face_map:
-                index_group_map[face_map.index] = NifClasses.BSDismemberBodyPartType[bodypartgroupname]
+        for idx, name in enumerate(group_names):
+            if name in NifClasses.BSDismemberBodyPartType.__members__:
+                index_group_map[idx] = NifClasses.BSDismemberBodyPartType[name]
         if len(index_group_map) <= 1:
             # there were no valid face maps
             return np.array([])
-        bm = bmesh.new()
-        bm.from_mesh(b_mesh)
-        bm.faces.ensure_lookup_table()
-        fm = bm.faces.layers.face_map.verify()
-        polygon_parts = np.array([index_group_map.get(face[fm], -1) for face in bm.faces], dtype=int)
-        bm.free()
+        # Read the mesh attribute for face map indices
+        attr_name = "niftools_face_map"
+        if attr_name in b_mesh.attributes:
+            face_map_layer = b_mesh.attributes[attr_name]
+            polygon_parts = np.array([
+                index_group_map.get(face_map_layer.data[i].value, -1)
+                for i in range(len(b_mesh.polygons))
+            ], dtype=int)
+        else:
+            polygon_parts = np.array([-1] * len(b_mesh.polygons), dtype=int)
         return polygon_parts
 
     def create_skin_inst_data(self, b_obj, b_obj_armature, polygon_parts):

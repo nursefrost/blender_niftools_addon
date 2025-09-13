@@ -271,23 +271,58 @@ class VertexGroup:
                 v_group.add([int(v_index)], weight, 'REPLACE')
 
     @staticmethod
+    def set_face_maps(face_maps, b_obj):
+        """
+        Set face maps using Blender 4+ mesh integer attributes.
+
+        :param face_maps: dictionary mapping body part name to triangle indices
+        :type face_maps: dict(str, list(int))
+        :param b_obj: Blender object to which to add the body parts
+        :type b_obj: bpy.types.Object
+        :return: None
+        :rtype: NoneType
+        """
+        # Remove old face maps if present (for migration safety)
+        mesh = b_obj.data
+        attr_name = "niftools_face_map"
+        # Remove old attribute if it exists
+        if attr_name in mesh.attributes:
+            mesh.attributes.remove(mesh.attributes[attr_name])
+        # Build mapping: group name <-> int
+        group_names = list(face_maps.keys())
+        name_to_index = {name: idx for idx, name in enumerate(group_names)}
+        # Store mapping as custom property
+        b_obj["niftools_face_map_names"] = group_names
+        # Create the integer attribute on the face domain
+        mesh.attributes.new(name=attr_name, type='INT', domain='FACE')
+        attr = mesh.attributes[attr_name].data
+        # Default all faces to -1 (no group)
+        for i in range(len(attr)):
+            attr[i].value = -1
+        # Assign group indices to faces
+        for group_name, tri_indices in face_maps.items():
+            group_idx = name_to_index[group_name]
+            for tri in tri_indices:
+                if tri < len(attr):
+                    attr[tri].value = group_idx
+
+    @staticmethod
     def get_face_maps(ni_block):
-        """Retrieve the triangle indices per body part
+        """
+        Retrieve the triangle indices per body part from a Blender object using mesh integer attributes.
 
         :param ni_block: NiObject from which to take the face body parts
         :type ni_block: NifClasses.NiAVObject
         :return: dictionary mapping body part name to triangle indices
         :rtype: dict(str, list(int))
-
         """
+        # This function is for NIF import, so we keep the original logic for now.
         face_maps = {}
         if hasattr(ni_block, 'skin_instance'):
             skininst = ni_block.skin_instance
             if isinstance(skininst, NifClasses.BSDismemberSkinInstance):
                 for bodypart in skininst.partitions:
                     group_name = bodypart.body_part.name
-
-                    # create face map if it did not exist yet
                     if group_name not in face_maps:
                         face_maps[group_name] = []
                 triangles, bodyparts = skininst.get_dismember_partitions()
@@ -296,20 +331,22 @@ class VertexGroup:
         return face_maps
 
     @staticmethod
-    def set_face_maps(face_maps, b_obj):
+    def get_face_maps_from_object(b_obj):
         """
-
-        :param face_maps: dictionary mapping body part name to triangle indices
-        :type face_maps: dict(str, list(int))
-        :param b_obj: Blender object to which to add the body parts
+        Retrieve the face maps from a Blender object using mesh integer attributes.
+        :param b_obj: Blender object
         :type b_obj: bpy.types.Object
-        :return: None
-        :rtype: NoneType
-
+        :return: dictionary mapping body part name to triangle indices
+        :rtype: dict(str, list(int))
         """
-        for group_name, tri_indices in face_maps.items():
-            if group_name not in b_obj.face_maps:
-                f_group = b_obj.face_maps.new(name=group_name)
-            else:
-                f_group = b_obj.face_maps[group_name]
-            f_group.add(tri_indices)
+        mesh = b_obj.data
+        attr_name = "niftools_face_map"
+        group_names = b_obj.get("niftools_face_map_names", [])
+        face_maps = {name: [] for name in group_names}
+        if attr_name in mesh.attributes:
+            attr = mesh.attributes[attr_name].data
+            for i, item in enumerate(attr):
+                idx = item.value
+                if idx >= 0 and idx < len(group_names):
+                    face_maps[group_names[idx]].append(i)
+        return face_maps

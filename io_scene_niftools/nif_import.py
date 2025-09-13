@@ -200,7 +200,7 @@ class NifImport(NifCommon):
         # Import geometry if present
         if self.objecthelper.has_geometry(n_block) and NifOp.props.process != "SKELETON_ONLY":
             b_obj = self.objecthelper.import_geometry_object(b_armature, n_block)
-        # If it's a NiNode, process children
+        # If it's a NiNode, process parent first, then children
         if isinstance(n_block, NifClasses.NiNode):
             # import object
             if self.armaturehelper.is_armature_root(n_block):
@@ -231,6 +231,7 @@ class NifImport(NifCommon):
             # find children
             b_children = []
             n_children = [child for child in n_block.children]
+            # create children after parent
             for n_child in n_children:
                 b_child = self.import_branch(n_child, b_armature=b_armature)
                 if b_child and hasattr(b_child, 'select_set'):

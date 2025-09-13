@@ -73,9 +73,8 @@ class Collision:
         b_obj.display_type = 'BOUNDS'
         b_obj.display_bounds_type = display_type
 
-        override = bpy.context.copy()
-        override['selected_objects'] = b_obj
-        bpy.ops.rigidbody.object_add(override)
+        bpy.context.view_layer.objects.active = b_obj
+        bpy.ops.rigidbody.object_add()
         # viable alternative:
         # bpy.context.view_layer.objects.active = b_col_obj
         # bpy.ops.rigidbody.object_add(type='PASSIVE')

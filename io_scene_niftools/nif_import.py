@@ -242,8 +242,12 @@ class NifImport(NifCommon):
                 b_children.extend(self.import_collision(n_block))
                 b_children.extend(self.boundhelper.import_bounding_box(n_block))
 
-            # set bind pose for children
-            self.objecthelper.set_object_bind(b_obj, b_children, b_armature)
+            # set bind pose for children, only for Blender Object types
+            import bpy
+            b_obj_is_object = isinstance(b_obj, bpy.types.Object)
+            b_children_objects = [child for child in b_children if isinstance(child, bpy.types.Object)]
+            if b_obj_is_object and b_children_objects:
+                self.objecthelper.set_object_bind(b_obj, b_children_objects, b_armature)
 
             # import extra node data, such as node type
             NiTypes.import_root_collision(n_block, b_obj)

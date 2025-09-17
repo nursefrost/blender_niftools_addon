@@ -131,7 +131,11 @@ class Object:
     def import_geometry_object(self, b_armature, n_block):
         # it's a shape node and we're not importing skeleton only
         b_obj = self.create_mesh_object(n_block)
+            # Debug: Log NIF translation and resulting Blender location
+        nif_translation = getattr(n_block, 'translation', None)
+        NifLog.debug(f"NIF translation for {getattr(n_block, 'name', 'unknown')}: {nif_translation}")
         b_obj.matrix_local = math.import_matrix(n_block)  # set transform matrix for the mesh
+        NifLog.debug(f"Blender object location after import_matrix: {b_obj.location}")
         self.mesh.import_mesh(n_block, b_obj)
         bpy.context.view_layer.objects.active = b_obj
         # store flags etc

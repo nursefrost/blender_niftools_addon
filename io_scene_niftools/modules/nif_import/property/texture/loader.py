@@ -72,33 +72,58 @@ class TextureLoader:
         :return Texture object
         """
 
+        # Logging for debug
+        NifLog.info(f"import_texture_source called for: {source}")
+        if hasattr(source, 'use_external'):
+            NifLog.info(f"use_external: {getattr(source, 'use_external', None)}")
+        NifLog.info(f"NifOp.props.use_embedded_texture: {getattr(NifOp.props, 'use_embedded_texture', None)}")
+
         # if the source block is not linked then return None
         if not source:
             return None
 
-        if isinstance(source, NifClasses.NiSourceTexture) and not source.use_external and NifOp.props.use_embedded_texture:
-            return self.import_embedded_texture_source(source)
+        # Try external first, fallback to embedded if missing
+        if isinstance(source, NifClasses.NiSourceTexture):
+            if source.use_external or not getattr(NifOp.props, 'use_embedded_texture', False):
+                b_image = self.import_external_source(source)
+                # Failsafe: if image is blank or not found, try embedded
+                if b_image is None or (hasattr(b_image, 'size') and b_image.size[0] == 1 and b_image.size[1] == 1):
+                    NifLog.warn("External texture not found, attempting to load embedded NiPixelData.")
+                    b_image = self.import_embedded_texture_source(source)
+                return b_image
+            else:
+                return self.import_embedded_texture_source(source)
         else:
             return self.import_external_source(source)
 
     def import_embedded_texture_source(self, source):
-        # first try to use the actual file name of this NiSourceTexture
-        tex_name = source.file_name
-        tex_path = os.path.join(os.path.dirname(NifOp.props.filepath), tex_name)
-        # not set, then use generated sequence name
-        if not tex_name:
-            tex_path = self.generate_image_name()
+        # Log reference chain
+        NifLog.info(f"Embedded texture import: NiSourceTexture file_name={getattr(source, 'file_name', None)}")
+        pixel_data = getattr(source, 'pixel_data', None)
+        if pixel_data:
+            NifLog.info(f"Found NiPixelData block: {pixel_data}")
+        else:
+            NifLog.warn("No NiPixelData found in NiSourceTexture; cannot extract embedded texture.")
 
-        # only save them once per run, obviously only useful if file_name was set
+        # Use file name if present, else generate one
+        tex_name = getattr(source, 'file_name', None)
+        tex_path = os.path.join(os.path.dirname(NifOp.props.filepath), tex_name) if tex_name else self.generate_image_name()
+
+        # Only save once per run
         if tex_path not in self.external_textures:
-            # save embedded texture as dds file
-            with open(tex_path, "wb") as stream:
+            # Save embedded texture as dds file if pixel_data exists
+            if pixel_data:
                 try:
-                    NifLog.info(f"Saving embedded texture as {tex_path}")
-                    source.pixel_data.save_as_dds(stream)
-                except ValueError:
-                    NifLog.warn(f"Pixel format not supported in embedded texture {tex_path}!")
+                    with open(tex_path, "wb") as stream:
+                        NifLog.info(f"Saving embedded texture as {tex_path}")
+                        pixel_data.save_as_dds(stream)
+                    NifLog.info(f"DDS file saved: {tex_path}. Please check this file manually to confirm it is valid.")
+                except Exception as e:
+                    NifLog.warn(f"Pixel format not supported or error in embedded texture {tex_path}: {e}")
+                    import traceback
                     traceback.print_exc()
+            else:
+                NifLog.warn(f"No pixel data to save for embedded texture {tex_path}")
             self.external_textures.add(tex_path)
 
         return self.load_image(tex_path)

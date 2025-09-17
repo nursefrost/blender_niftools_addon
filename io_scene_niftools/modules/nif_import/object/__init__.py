@@ -136,6 +136,9 @@ class Object:
         bpy.context.view_layer.objects.active = b_obj
         # store flags etc
         self.import_object_flags(n_block, b_obj)
+        # parent all meshes to armature (Scene Root)
+        if b_armature:
+            b_obj.parent = b_armature
         # skinning? add armature modifier
         if n_block.is_skin():
             self.append_armature_modifier(b_obj, b_armature)

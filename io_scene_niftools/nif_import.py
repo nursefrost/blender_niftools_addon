@@ -133,6 +133,16 @@ class NifImport(NifCommon):
         except NifError:
             return {'CANCELLED'}
 
+        # Ensure all mesh objects are parented to the armature (Scene Root)
+        scene_root = None
+        for obj in bpy.context.scene.objects:
+            if obj.type == 'ARMATURE' and obj.name == 'Scene Root':
+                scene_root = obj
+                break
+        if scene_root:
+            for obj in bpy.context.scene.objects:
+                if obj.type == 'MESH' and obj.parent is None:
+                    obj.parent = scene_root
         NifLog.info("Finished")
         return {'FINISHED'}
 

@@ -58,19 +58,37 @@ class NifLog:
     @staticmethod
     def debug(message):
         """Report a debug message."""
-        NifLog.op.report({'DEBUG'}, str(message))
+        try:
+            if hasattr(NifLog, 'op') and NifLog.op:
+                NifLog.op.report({'DEBUG'}, str(message))
+            else:
+                print(f"DEBUG: {message}")
+        except ReferenceError:
+            print(f"DEBUG: {message}")
         logging.getLogger("niftools").debug(str(message))
 
     @staticmethod
     def info(message):
         """Report an informative message."""
-        NifLog.op.report({'INFO'}, str(message))
+        try:
+            if hasattr(NifLog, 'op') and NifLog.op:
+                NifLog.op.report({'INFO'}, str(message))
+            else:
+                print(f"INFO: {message}")
+        except ReferenceError:
+            print(f"INFO: {message}")
         logging.getLogger("niftools").info(str(message))
 
     @staticmethod
     def warn(message):
         """Report a warning message."""
-        NifLog.op.report({'WARNING'}, str(message))
+        try:
+            if hasattr(NifLog, 'op') and NifLog.op:
+                NifLog.op.report({'WARNING'}, str(message))
+            else:
+                print(f"WARNING: {message}")
+        except ReferenceError:
+            print(f"WARNING: {message}")
         logging.getLogger("niftools").warning(str(message))
 
     @staticmethod
@@ -86,7 +104,13 @@ class NifLog:
 
             The :ref:`error reporting <dev-design-error-reporting>` design.
         """
-        NifLog.op.report({'ERROR'}, message)
+        try:
+            if hasattr(NifLog, 'op') and NifLog.op:
+                NifLog.op.report({'ERROR'}, str(message))
+            else:
+                print(f"ERROR: {message}")
+        except ReferenceError:
+            print(f"ERROR: {message}")
         logging.getLogger("niftools").error(str(message))
         return {'FINISHED'}
     
